@@ -1,0 +1,22 @@
+{
+  "name": "ItiGo - Painel Privado",
+  "short_name": "ItiGo",
+  "description": "Gerenciador de roteiros e gastos de viagens.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
