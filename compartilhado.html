@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItiGo - Visualização de Viagem</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20">
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzC1y007F0EFjiiAT077yeXG-LoqUGXGbAjIrmUtjpWvMLRIg-e1dqGAqMiwkClrfKf/exec";
+  </script>
+
+  <header class="sticky top-0 z-40 glass border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-2">
+      <div class="bg-indigo-600 text-white p-2 rounded-xl shadow">
+        <i data-lucide="compass" class="w-5 h-5"></i>
+      </div>
+      <h1 class="font-bold text-xl tracking-tight text-slate-900">Iti<span class="text-indigo-600">Go</span></h1>
+    </div>
+    
+    <!-- Botão de Detalhes Adicionado Aqui -->
+    <div class="flex items-center gap-2">
+      <button onclick="abrirDetalhes()" class="flex items-center justify-center p-2 rounded-xl border border-slate-300 bg-white shadow-sm hover:bg-slate-50 active:scale-95 transition" title="Detalhes da Viagem">
+        <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+      <div>
+        <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Viagem Compartilhada</label>
+        <h2 id="nomeViagemTitulo" class="font-bold text-lg text-slate-800 mt-0.5">Carregando viagem...</h2>
+      </div>
+
+      <div id="cardFinanceiro" class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+        <div class="bg-slate-50 p-2.5 rounded-xl">
+          <span class="block text-[10px] font-bold text-slate-400 uppercase">Orçado</span>
+          <span id="totalOrcado" class="text-sm font-extrabold text-slate-700">R$ 0</span>
+        </div>
+        <div class="bg-blue-50 p-2.5 rounded-xl">
+          <span class="block text-[10px] font-bold text-blue-600 uppercase">Pago</span>
+          <span id="totalPago" class="text-sm font-extrabold text-blue-700">R$ 0</span>
+        </div>
+        <div id="containerFalta" class="bg-slate-50 p-2.5 rounded-xl transition-colors">
+          <span id="labelFalta" class="block text-[10px] font-bold text-slate-500 uppercase">Diferença</span>
+          <span id="totalFalta" class="text-sm font-extrabold text-slate-700">R$ 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4" id="listaWaypoints"></div>
+
+  </main>
+
+  <div id="modalLoading" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl flex flex-col items-center space-y-3">
+      <div class="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent"></div>
+      <p class="font-bold text-slate-800 text-base">Carregando roteiro...</p>
+    </div>
+  </div>
+
+  <script>
+    let appData = { viagens: [], waypoints: [] };
+    let viagemIdUrl = "";
+
+    window.onload = () => {
+      lucide.createIcons();
+      carregarDadosCompartilhados();
+    };
+
+    // Nova Função para abrir os Detalhes
+    function abrirDetalhes() {
+      if (!viagemIdUrl) {
+        alert("Nenhuma viagem identificada para exibir os detalhes.");
+        return;
+      }
+      window.location.href = `detalhes.html?viagem=${viagemIdUrl}`;
+    }
+
+    async function carregarDadosCompartilhados() {
+      const urlParams = new URLSearchParams(window.location.search);
+      viagemIdUrl = urlParams.get('viagem');
+
+      if (!viagemIdUrl) {
+        document.getElementById('nomeViagemTitulo').textContent = "Nenhuma viagem especificada.";
+        document.getElementById('listaWaypoints').innerHTML = `<div class="text-center py-10 text-slate-400 font-medium text-sm">Link de compartilhamento inválido.</div>`;
+        return;
+      }
+
+      document.getElementById('modalLoading').classList.remove('hidden');
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'getDados', viagemId: viagemIdUrl })
+        });
+        const data = await res.json();
+
+        if (data.sucesso) {
+          appData = data;
+          
+          if (data.viagens.length > 0) {
+            document.getElementById('nomeViagemTitulo').textContent = data.viagens[0].nome;
+          } else {
+            document.getElementById('nomeViagemTitulo').textContent = "Viagem não encontrada";
+          }
+
+          carregarRoteiroComFocoAutomatico();
+        }
+      } catch (e) {
+        alert("Erro ao conectar com a planilha.");
+      } finally {
+        document.getElementById('modalLoading').classList.add('hidden');
+      }
+    }
+
+    function carregarRoteiroComFocoAutomatico() {
+      const waypointsViagem = appData.waypoints.filter(w => String(w.idViagem) === String(viagemIdUrl) && w.dataHora);
+
+      let idMaisProximo = null;
+      if (waypointsViagem.length > 0) {
+        const agora = new Date().getTime();
+        let menorDiferenca = Infinity;
+
+        waypointsViagem.forEach(w => {
+          const tempoWp = new Date(w.dataHora).getTime();
+          if (!isNaN(tempoWp)) {
+            const diferenca = Math.abs(tempoWp - agora);
+            if (diferenca < menorDiferenca) {
+              menorDiferenca = diferenca;
+              idMaisProximo = w.id;
+            }
+          }
+        });
+      }
+
+      carregarRoteiro(idMaisProximo);
+    }
+
+    function carregarRoteiro(idWaypointParaFocar = null) {
+      const container = document.getElementById('listaWaypoints');
+      container.innerHTML = '';
+
+      const waypoints = appData.waypoints
+        .filter(w => String(w.idViagem) === String(viagemIdUrl))
+        .sort((a, b) => {
+          if (!a.dataHora) return 1;
+          if (!b.dataHora) return -1;
+          return new Date(a.dataHora) - new Date(b.dataHora);
+        });
+
+      const gruposPorHorario = {};
+      waypoints.forEach(w => {
+        const chave = w.dataHora ? w.dataHora : `sem_data_${Math.random()}`;
+        if (!gruposPorHorario[chave]) gruposPorHorario[chave] = [];
+        gruposPorHorario[chave].push(w);
+      });
+
+      let orcadoTotal = 0;
+      let pago = 0;
+      let diferencaGeral = 0;
+
+      Object.keys(gruposPorHorario).forEach(chave => {
+        const itens = gruposPorHorario[chave];
+        
+        const maiorOrcadoDoHorario = Math.max(...itens.map(w => (w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0))));
+        orcadoTotal += maiorOrcadoDoHorario;
+
+        itens.forEach(w => {
+          const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+          
+          // Compatibilidade com possíveis gastos extras salvos
+          let somaExtras = 0;
+          if (w.gastosExtras) {
+            try {
+              const extrasArr = JSON.parse(w.gastosExtras);
+              somaExtras = extrasArr.reduce((acc, curr) => acc + curr.valor, 0);
+            } catch(e) {}
+          }
+          const valorPagoItem = (w.valorPago || 0) + somaExtras;
+          
+          pago += valorPagoItem;
+          
+          if (valorPagoItem > 0) {
+            diferencaGeral += (valorOrcadoItem - valorPagoItem);
+          }
+        });
+      });
+
+      document.getElementById('totalOrcado').textContent = `R$ ${orcadoTotal.toFixed(2)}`;
+      document.getElementById('totalPago').textContent = `R$ ${pago.toFixed(2)}`;
+
+      const containerFalta = document.getElementById('containerFalta');
+      const labelFalta = document.getElementById('labelFalta');
+      const totalFalta = document.getElementById('totalFalta');
+
+      if (diferencaGeral < 0) {
+        totalFalta.textContent = `R$ ${Math.abs(diferencaGeral).toFixed(2)}`;
+        containerFalta.className = "bg-rose-50 p-2.5 rounded-xl transition-colors";
+        labelFalta.className = "block text-[10px] font-bold text-rose-600 uppercase";
+        totalFalta.className = "text-sm font-extrabold text-rose-700";
+        labelFalta.textContent = "Excedido";
+      } else {
+        totalFalta.textContent = `R$ ${diferencaGeral.toFixed(2)}`;
+        containerFalta.className = "bg-emerald-50 p-2.5 rounded-xl transition-colors";
+        labelFalta.className = "block text-[10px] font-bold text-emerald-600 uppercase";
+        totalFalta.className = "text-sm font-extrabold text-emerald-700";
+        labelFalta.textContent = "Economia";
+      }
+
+      if (waypoints.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium text-sm">Nenhum ponto cadastrado para esta viagem.</div>`;
+        return;
+      }
+
+      let elementoParaFocar = null;
+
+      Object.keys(gruposPorHorario).forEach(chave => {
+        const itensDoHorario = gruposPorHorario[chave];
+        const primeiroWp = itensDoHorario[0];
+
+        const blocoDiv = document.createElement('div');
+        blocoDiv.className = "space-y-2";
+
+        if (itensDoHorario.length > 1 && primeiroWp.dataHora) {
+          const headerOpcoes = document.createElement('div');
+          headerOpcoes.className = "flex items-center gap-1.5 text-xs text-indigo-600 font-bold px-1";
+          headerOpcoes.innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i><span>${formatarData(primeiroWp.dataHora)}</span>`;
+          blocoDiv.appendChild(headerOpcoes);
+        }
+
+        if (itensDoHorario.length > 1) {
+          const carrosselContainerDiv = document.createElement('div');
+          carrosselContainerDiv.className = "space-y-2";
+
+          const carrosselDiv = document.createElement('div');
+          carrosselDiv.className = "flex gap-3 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-1 w-full";
+
+          itensDoHorario.forEach((w) => {
+            const cardHtml = criarCardHTML(w, false);
+            const cardWrapper = document.createElement('div');
+            cardWrapper.id = `card-wp-${w.id}`;
+            cardWrapper.className = "w-full flex-shrink-0 snap-start transition-all duration-300";
+            cardWrapper.innerHTML = cardHtml;
+            carrosselDiv.appendChild(cardWrapper);
+
+            if (w.id === idWaypointParaFocar) elementoParaFocar = cardWrapper;
+          });
+
+          carrosselContainerDiv.appendChild(carrosselDiv);
+
+          const dotsDiv = document.createElement('div');
+          dotsDiv.className = "flex justify-center items-center gap-1.5 pt-1";
+          
+          itensDoHorario.forEach((_, index) => {
+            const dot = document.createElement('button');
+            dot.className = `w-2 h-2 rounded-full transition-all ${index === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-300'}`;
+            dot.onclick = () => {
+              const targetCard = carrosselDiv.children[index];
+              if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            };
+            dotsDiv.appendChild(dot);
+          });
+
+          carrosselDiv.addEventListener('scroll', () => {
+            const scrollLeft = carrosselDiv.scrollLeft;
+            const cardWidth = carrosselDiv.offsetWidth;
+            const activeIndex = Math.round(scrollLeft / cardWidth);
+            
+            Array.from(dotsDiv.children).forEach((dot, idx) => {
+              if (idx === activeIndex) {
+                dot.className = "w-4 h-2 rounded-full bg-indigo-600 transition-all";
+              } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-300 transition-all";
+              }
+            });
+          });
+
+          carrosselContainerDiv.appendChild(dotsDiv);
+          blocoDiv.appendChild(carrosselContainerDiv);
+        } else {
+          const w = itensDoHorario[0];
+          const cardHtml = criarCardHTML(w, true);
+          const cardWrapper = document.createElement('div');
+          cardWrapper.id = `card-wp-${w.id}`;
+          cardWrapper.className = "transition-all duration-300";
+          cardWrapper.innerHTML = cardHtml;
+          blocoDiv.appendChild(cardWrapper);
+
+          if (w.id === idWaypointParaFocar) elementoParaFocar = cardWrapper;
+        }
+
+        container.appendChild(blocoDiv);
+      });
+
+      lucide.createIcons();
+
+      if (elementoParaFocar) {
+        setTimeout(() => {
+          elementoParaFocar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          elementoParaFocar.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-2', 'scale-[1.02]');
+          setTimeout(() => {
+            elementoParaFocar.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-2', 'scale-[1.02]');
+          }, 2000);
+        }, 150);
+      }
+    }
+
+    function criarCardHTML(w, exibirDataHoraNoCard = false) {
+      const temCidade = w.cidade && w.cidade.trim() !== "";
+      const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+      
+      let somaExtras = 0;
+      if (w.gastosExtras) {
+        try {
+          const extrasArr = JSON.parse(w.gastosExtras);
+          somaExtras = extrasArr.reduce((acc, curr) => acc + curr.valor, 0);
+        } catch(e) {}
+      }
+      const valorPagoItem = (w.valorPago || 0) + somaExtras;
+
+      let dataHoraFormatada = "";
+      if (exibirDataHoraNoCard && w.dataHora) {
+        dataHoraFormatada = formatarData(w.dataHora);
+      }
+
+      let corValorPago = "text-slate-800"; 
+      if (valorPagoItem > 0) {
+        if (valorOrcadoItem < valorPagoItem) {
+          corValorPago = "text-rose-600";
+        } else {
+          corValorPago = "text-blue-600";
+        }
+      }
+
+      return `
+        <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative h-full flex flex-col justify-between">
+          <div>
+            ${w.linkFoto ? `<img src="${w.linkFoto}" class="w-full h-36 object-cover" onerror="this.style.display='none'">` : ''}
+            <div class="p-4 space-y-2">
+              <div class="flex justify-between items-start gap-2">
+                <div class="min-w-0 flex-1">
+                  <span class="inline-block text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-wider mb-1">
+                    ${w.cidade || 'Atividade Geral'}
+                  </span>
+
+                  <h3 class="font-bold text-slate-900 text-sm sm:text-base leading-tight break-words" 
+                      style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                    ${w.atividade}
+                  </h3>
+
+                  ${dataHoraFormatada ? `
+                    <div class="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                      <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> 
+                      <span>${dataHoraFormatada}</span>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  ${temCidade ? `
+                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${w.atividade}, ${w.cidade}`)}" target="_blank" class="bg-indigo-50 text-indigo-600 p-2 rounded-xl hover:bg-indigo-100 transition" title="Abrir no Maps">
+                      <i data-lucide="map-pin" class="w-5 h-5"></i>
+                    </a>
+                    <a href="https://waze.com/ul?q=${encodeURIComponent(`${w.atividade}, ${w.cidade}`)}&navigate=yes" target="_blank" class="bg-sky-50 text-sky-600 p-2 rounded-xl hover:bg-sky-100 transition" title="Abrir no Waze">
+                      <i data-lucide="navigation" class="w-5 h-5"></i>
+                    </a>
+                  ` : ''}
+                </div>
+              </div>
+              ${w.observacoes ? `<p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">${w.observacoes}</p>` : ''}
+            </div>
+          </div>
+          <div class="px-4 pb-4 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px]">Orçado / Pago</span>
+              <span class="font-bold text-slate-700">R$ ${valorOrcadoItem.toFixed(2)}</span> / 
+              <span class="font-extrabold ${corValorPago}">R$ ${valorPagoItem.toFixed(2)}</span>
+            </div>
+            ${w.linkMidia ? `<a href="${w.linkMidia}" target="_blank" class="text-rose-500 bg-rose-50 p-2 rounded-xl" title="Ver Vídeo"><i data-lucide="video" class="w-4 h-4"></i></a>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function formatarData(dataStr) {
+      if (!dataStr) return '';
+      const data = new Date(dataStr);
+      if (isNaN(data.getTime())) return dataStr;
+      const dataCorrigida = new Date(data.getTime() - (3 * 60 * 60 * 1000));
+      const dia = String(dataCorrigida.getUTCDate()).padStart(2, '0');
+      const mes = String(dataCorrigida.getUTCMonth() + 1).padStart(2, '0');
+      const ano = dataCorrigida.getUTCFullYear();
+      const hora = String(dataCorrigida.getUTCHours()).padStart(2, '0');
+      const min = String(dataCorrigida.getUTCMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} às ${hora}:${min}`;
+    }
+  </script>
+</body>
+</html>
