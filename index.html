@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItiGo - Painel Privado</title>
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ItiGo">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20">
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzC1y007F0EFjiiAT077yeXG-LoqUGXGbAjIrmUtjpWvMLRIg-e1dqGAqMiwkClrfKf/exec";
+  </script>
+
+  <!-- TELA DE BLOQUEIO POR PIN NA RAIZ -->
+  <div id="telaBloqueio" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl space-y-4 text-center">
+      <div class="bg-indigo-600 text-white w-12 h-12 rounded-2xl mx-auto flex items-center justify-center shadow">
+        <i data-lucide="lock" class="w-6 h-6"></i>
+      </div>
+      <h3 class="font-bold text-slate-900 text-lg">Área Restrita</h3>
+      <p class="text-xs text-slate-500">Digite seu PIN para acessar o painel de controle.</p>
+      <input type="password" id="inputPinRaiz" maxlength="6" class="w-full text-center text-2xl font-bold tracking-widest bg-slate-100 border border-slate-200 rounded-xl py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="••••">
+      <button onclick="desbloquearRaiz()" class="w-full py-3 bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow hover:bg-indigo-700 transition">Entrar</button>
+    </div>
+  </div>
+
+    <!-- CABEÇALHO + PAINEL DE VIAGEM (Tudo fixo no topo) -->
+  <div class="sticky top-0 z-40 glass border-b border-slate-200 shadow-sm">
+    <div class="max-w-md mx-auto w-full">
+      
+      <!-- NÍVEL 1: Topbar (Logo e Ações Globais) -->
+      <div class="px-4 pt-3 pb-2 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm">
+            <i data-lucide="compass" class="w-4 h-4"></i>
+          </div>
+          <h1 class="font-bold text-lg tracking-tight text-slate-900">Iti<span class="text-indigo-600">Go</span></h1>
+        </div>
+        <div class="flex items-center gap-1">
+          <button onclick="abrirDetalhes()" class="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition" title="Resumo e Gráficos">
+            <i data-lucide="pie-chart" class="w-4 h-4"></i>
+          </button>
+          <button onclick="compartilharViagemAtual()" class="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition" title="Compartilhar">
+            <i data-lucide="share-2" class="w-4 h-4"></i>
+          </button>
+          <div class="w-px h-4 bg-slate-300 mx-1"></div> <!-- Divisória -->
+          <button onclick="sairDoPainel()" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Bloquear Painel">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- NÍVEL 2: Seleção e Edição da Viagem -->
+      <div class="px-4 pb-2 flex gap-2 items-center">
+        <!-- Select customizado -->
+        <div class="relative flex-1">
+          <select id="selectViagem" onchange="carregarRoteiroComFocoAutomatico()" class="w-full bg-white/80 border border-slate-200 rounded-xl p-2.5 pl-3 pr-8 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm appearance-none cursor-pointer">
+            <option value="">Carregando viagens...</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <!-- Botões de ação da viagem -->
+        <button onclick="abrirModalRenomearViagem()" class="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 shadow-sm transition shrink-0" title="Renomear Viagem">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
+        </button>
+        <button onclick="abrirModalViagem()" class="p-2.5 rounded-xl bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition shrink-0" title="Nova Viagem">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- NÍVEL 3: Resumo Financeiro e Ferramentas (Mesclados) -->
+      <div class="px-4 pb-3 pt-1 flex items-center justify-between">
+        
+        <!-- Bloco Financeiro -->
+        <div id="cardFinanceiro" class="flex items-center gap-3">
+          <div class="flex flex-col">
+            <span class="text-[9px] font-bold text-slate-400 uppercase">Orçado</span>
+            <span id="totalOrcado" class="text-xs font-bold text-slate-600">R$ 0</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[9px] font-bold text-blue-500 uppercase">Pago</span>
+            <span id="totalPago" class="text-xs font-bold text-blue-600">R$ 0</span>
+          </div>
+          <div id="containerFalta" class="flex flex-col items-end px-2 py-0.5 rounded-md bg-slate-100 transition-colors">
+            <span id="labelFalta" class="text-[9px] font-bold text-slate-500 uppercase">Dif</span>
+            <span id="totalFalta" class="text-xs font-bold text-slate-700">R$ 0</span>
+          </div>
+        </div>
+
+        <!-- Ferramentas de Roteiro (Apenas Ícones) -->
+<div class="flex items-center gap-1.5 shrink-0 pl-2">
+  <button id="btnOrdenacaoRoteiro" onclick="abrirModalOrdenacao()" class="p-1.5 rounded-lg text-slate-500 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition active:scale-95" title="Ordenar Roteiro">
+    <i data-lucide="arrow-up-down" class="w-4 h-4"></i>
+  </button>
+  <button id="btnFiltroRoteiro" onclick="abrirModalFiltro()" class="p-1.5 rounded-lg text-slate-500 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition active:scale-95" title="Filtrar Roteiro">
+    <i data-lucide="filter" class="w-4 h-4"></i>
+  </button>
+</div>
+
+
+      </div>
+
+    </div>
+  </div> 
+
+    <!-- CONTAINER PRINCIPAL DO ROTEIRO -->
+  <main class="max-w-md mx-auto p-4">
+    <!-- O padding top dá um respiro logo abaixo do cabeçalho fixo -->
+    <div class="space-y-4 pt-1" id="listaWaypoints"></div>
+  </main>
+              
+
+  <button onclick="abrirModalWaypoint()" class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 active:scale-90 transition z-30">
+    <i data-lucide="plus" class="w-6 h-6"></i>
+  </button>
+
+  <button id="btnVoltarTopo" onclick="voltarAoTopo()" class="fixed bottom-6 left-6 bg-slate-800 text-white p-4 rounded-full shadow-lg hover:bg-slate-900 active:scale-90 transition-all duration-300 z-30 opacity-0 pointer-events-none -translate-y-4" title="Voltar ao topo">
+    <i data-lucide="arrow-up" class="w-6 h-6"></i>
+  </button>
+
+  <div id="modalViagem" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+      <h3 class="font-bold text-slate-900 text-lg">Nova Viagem</h3>
+      <input type="text" id="inputNomeViagem" placeholder="Ex: Capitólio" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <div class="flex gap-2 justify-end">
+        <button onclick="fecharModalViagem()" class="px-4 py-2.5 text-slate-500 font-semibold text-sm">Cancelar</button>
+        <button onclick="salvarViagem()" class="px-4 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalRenomearViagem" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+      <h3 class="font-bold text-slate-900 text-lg">Renomear Viagem</h3>
+      <input type="text" id="inputNovoNomeViagem" placeholder="Novo nome da viagem" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <div class="flex gap-2 justify-end">
+        <button onclick="fecharModalRenomearViagem()" class="px-4 py-2.5 text-slate-500 font-semibold text-sm">Cancelar</button>
+        <button onclick="salvarNovoNomeViagem()" class="px-4 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow">Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalWaypoint" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 overflow-y-auto">
+    <div class="min-h-screen px-4 text-center flex items-center justify-center">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 my-8 text-left inline-block align-middle relative">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="tituloModalWp" class="font-bold text-slate-900 text-lg">Novo Waypoint</h3>
+          <div class="flex gap-2">
+            <button id="btnDuplicarModal" onclick="duplicarWaypointNoModal()" class="hidden text-sky-500 hover:text-sky-700 p-2 rounded-xl hover:bg-sky-50 transition flex items-center gap-1 text-xs font-semibold">
+              <i data-lucide="copy" class="w-4 h-4"></i> Duplicar
+            </button>
+            <button id="btnExcluirModal" onclick="excluirWaypointDoModal()" class="hidden text-rose-500 hover:text-rose-700 p-2 rounded-xl hover:bg-rose-50 transition flex items-center gap-1 text-xs font-semibold">
+              <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir
+            </button>
+          </div>
+        </div>
+
+        <input type="hidden" id="wpId">
+
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="font-semibold text-slate-600 block mb-1">Ponto de Parada / Atividade</label>
+            <input type="text" id="wpAtividade" placeholder="Ex: Café da manhã" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5" oninput="atualizarPreviews()">
+          </div>
+          <div>
+            <label class="font-semibold text-slate-600 block mb-1">Cidade</label>
+            <input type="text" id="wpCidade" placeholder="Ex: Cabo Frio" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5" oninput="atualizarPreviews()">
+          </div>
+          <div>
+            <label class="font-semibold text-slate-600 block mb-1">Categoria</label>
+            <select id="wpCategoria" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm">
+              <option value="Em branco">Selecione</option>
+              <option value="Alimentação">Alimentação</option>
+              <option value="Hospedagem">Hospedagem</option>
+              <option value="Transporte">Transporte</option>
+              <option value="Passeios">Passeios</option>
+              <option value="Lembranças">Lembranças</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-semibold text-slate-600 block mb-1">Data</label>
+              <input type="date" id="wpData" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs">
+            </div>
+            <div>
+              <label class="font-semibold text-slate-600 block mb-1">Horário</label>
+              <input type="time" id="wpHora" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs">
+            </div>
+          </div>
+          <div id="boxPreviewMaps" class="hidden space-y-2">
+            <label class="font-semibold text-slate-600 block text-xs">Pré-visualização do Local</label>
+            <div class="relative w-full h-40 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <iframe id="iframeMapsPreview" class="w-full h-full border-0" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="flex justify-end">
+              <a id="btnTestarMaps" href="#" target="_blank" class="text-indigo-600 hover:text-indigo-700 text-xs font-bold flex items-center gap-1">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Abrir no Google Maps
+              </a>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-semibold text-slate-600 block mb-1">Valor Orçado (R$)</label>
+              <input type="number" step="0.01" id="wpValorOrcado" placeholder="0.00" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+            </div>
+            <div>
+              <label class="font-semibold text-slate-600 block mb-1">Valor Pago (R$)</label>
+              <input type="number" step="0.01" id="wpValorPago" placeholder="0.00" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <label class="font-semibold text-slate-600 block text-xs">Foto do Lugar (URL)</label>
+              <a id="btnPesquisarImagens" href="#" target="_blank" class="text-indigo-600 hover:text-indigo-700 text-xs font-bold flex items-center gap-1">
+                <i data-lucide="image" class="w-3.5 h-3.5"></i> Buscar no Google
+              </a>
+            </div>
+            <input type="url" id="wpLinkFoto" placeholder="https://..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs" oninput="atualizarPreviewFoto()">
+            <div id="boxPreviewFoto" class="hidden relative w-full h-36 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <img id="imgPreview" class="w-full h-full object-cover" alt="Prévia" onerror="this.style.display='none'">
+            </div>
+          </div>
+          <div>
+            <label class="font-semibold text-slate-600 block mb-1">Link de Vídeo / Mídia</label>
+            <input type="url" id="wpLinkMidia" placeholder="https://..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs">
+          </div>
+          <div>
+            <label class="font-semibold text-slate-600 block mb-1">Observações</label>
+            <textarea id="wpObservacoes" rows="2" placeholder="Dicas..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"></textarea>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2 border-t mt-4">
+          <button onclick="fecharModalWaypoint()" class="px-4 py-2.5 text-slate-500 font-semibold text-sm">Cancelar</button>
+          <button onclick="salvarWaypoint()" class="px-4 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow">Salvar Waypoint</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPagamento" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 overflow-y-auto">
+    <div class="min-h-screen px-4 text-center flex items-center justify-center">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 my-8 text-left inline-block align-middle relative">
+        <h3 class="font-bold text-slate-900 text-lg border-b pb-2">Gerenciar Pagamentos</h3>
+        <input type="hidden" id="pagWpId">
+
+        <!-- VALOR BASE -->
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1 block">Valor Base Pago (R$)</label>
+          <p class="text-[10px] text-slate-400 mb-2 leading-tight">Valor principal pago pela atividade. Edite para corrigir erros.</p>
+          <input type="number" step="0.01" id="pagValorInput" oninput="renderizarGastosModal()" class="w-full text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- GASTOS EXTRAS -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <label class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">Gastos Extras</label>
+          
+          <div class="flex gap-2 mb-3">
+            <input type="text" id="novoGastoMotivo" placeholder="Motivo (Ex: Bebidas)" class="w-3/5 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <input type="number" id="novoGastoValor" step="0.01" placeholder="Valor" onkeypress="if(event.key==='Enter') adicionarGastoLocal()" class="w-2/5 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <button onclick="adicionarGastoLocal()" class="bg-blue-600 text-white p-2 rounded-lg shadow-sm hover:bg-blue-700 transition" title="Adicionar">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <div id="listaGastosExtrasModal" class="space-y-2 max-h-36 overflow-y-auto pr-1 hide-scrollbar">
+            <!-- Renderizados via JS -->
+          </div>
+          
+          <div class="mt-3 pt-2 border-t border-slate-200 flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-600">Total Pago (Base + Extras):</span>
+            <span id="displayTotalPago" class="text-sm font-extrabold text-blue-700">R$ 0,00</span>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button onclick="fecharModalPagamento()" class="px-4 py-2.5 text-slate-500 font-semibold text-sm">Cancelar</button>
+          <button onclick="salvarPagamentos()" class="px-4 py-2.5 bg-blue-600 text-white font-semibold text-sm rounded-xl shadow hover:bg-blue-700 transition">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- MODAL ORDENAÇÃO -->
+  <div id="modalOrdenacao" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-900 text-lg">Ordenar por</h3>
+        <button onclick="fecharModalOrdenacao()" class="text-slate-400 hover:text-rose-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button onclick="aplicarOrdenacao('data')" class="text-left px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition">🗓️ Data / Cronológico (Padrão)</button>
+        <button onclick="aplicarOrdenacao('maior_orcado')" class="text-left px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition">💰 Maior Valor Orçado</button>
+        <button onclick="aplicarOrdenacao('maior_pago')" class="text-left px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition">💳 Maior Valor Pago</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- MODAL FILTRO AVANÇADO -->
+  <div id="modalFiltro" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-900 text-lg">Filtros Avançados</h3>
+        <button onclick="fecharModalFiltro()" class="text-slate-400 hover:text-rose-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Status do Agendamento (Rascunhos vs Agendados) -->
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 block">Status do Agendamento</label>
+          <select id="filtroData" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            <option value="Todos">Todos os pontos</option>
+            <option value="ComData">🗓️ Agendados (Com data e hora)</option>
+            <option value="SemData">📝 Rascunhos (Sem data/hora)</option>
+          </select>
+        </div>
+
+        <!-- Cidade (Dinâmico) -->
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 block">Cidade / Local</label>
+          <select id="filtroCidade" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            <option value="Todas">Todas as cidades</option>
+            <!-- Injetado via JS -->
+          </select>
+        </div>
+
+        <!-- Financeiro -->
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 block">Status Financeiro</label>
+          <select id="filtroFinanceiro" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            <option value="Todos">Todos</option>
+            <optgroup label="Orçamento">
+              <option value="Orcado">💰 Com orçamento definido</option>
+              <option value="NaoOrcado">⚠️ Falta definir orçamento</option>
+            </optgroup>
+            <optgroup label="Pagamento">
+              <option value="Pago">✅ Já pago (Total ou parcial)</option>
+              <option value="NaoPago">💳 Não pago (Valor zero)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Categoria -->
+        <div>
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 block">Categoria</label>
+          <select id="filtroCategoria" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            <option value="Todas">Todas as categorias</option>
+            <option value="Alimentação">🍔 Alimentação</option>
+            <option value="Hospedagem">🏨 Hospedagem</option>
+            <option value="Transporte">🚗 Transporte</option>
+            <option value="Passeios">🎫 Passeios</option>
+            <option value="Lembranças">🛍️ Lembranças</option>
+            <option value="Outros">📌 Outros</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-3 border-t mt-4">
+        <button onclick="limparFiltros()" class="px-4 py-2.5 text-slate-500 font-semibold text-sm hover:bg-slate-50 rounded-xl transition">Limpar</button>
+        <button onclick="salvarFiltros()" class="px-4 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow hover:bg-indigo-700 transition">Aplicar Filtros</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div id="modalLoading" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl flex flex-col items-center space-y-3">
+      <div class="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent"></div>
+      <p id="txtLoading" class="font-bold text-slate-800 text-base">Processando...</p>
+    </div>
+  </div>
+
+  <!-- MODAL DE ALERTA/CONFIRMAÇÃO CUSTOMIZADO -->
+  <div id="modalAlertaCustom" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 transform scale-95 transition-transform duration-300" id="modalAlertaContent">
+      <div class="flex items-start gap-4">
+        <div id="modalAlertaIcon" class="w-12 h-12 rounded-full flex items-center justify-center shrink-0">
+           <!-- Ícone injetado via JS -->
+        </div>
+        <div class="space-y-1 mt-1">
+          <h3 id="modalAlertaTitulo" class="font-bold text-slate-900 text-lg leading-tight">Aviso</h3>
+          <p id="modalAlertaMensagem" class="text-sm text-slate-600 leading-relaxed"></p>
+        </div>
+      </div>
+      <div id="modalAlertaBotoes" class="flex gap-2 justify-end pt-2">
+        <!-- Botões injetados via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let appData = { viagens: [], waypoints: [] };
+    let userPin = null;
+
+        // Variáveis de controle de Filtro e Ordenação
+        let filtrosAtuais = {
+      categoria: 'Todas',
+      statusData: 'Todos',
+      cidade: 'Todas',
+      statusFinanceiro: 'Todos'
+    };
+    let ordenacaoAtual = 'data'; 
+
+    function abrirModalOrdenacao() { document.getElementById('modalOrdenacao').classList.remove('hidden'); lucide.createIcons(); }
+    function fecharModalOrdenacao() { document.getElementById('modalOrdenacao').classList.add('hidden'); }
+
+    function aplicarOrdenacao(tipo) {
+  ordenacaoAtual = tipo;
+  fecharModalOrdenacao();
+  
+  const btn = document.getElementById('btnOrdenacaoRoteiro');
+  if (tipo !== 'data') {
+    btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+    btn.classList.remove('text-slate-500', 'bg-white', 'border-slate-200');
+  } else {
+    btn.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+    btn.classList.add('text-slate-500', 'bg-white', 'border-slate-200');
+  }
+
+  // CORREÇÃO: Força o roteiro a ser renderizado novamente com a nova ordem
+  carregarRoteiro();
+}
+
+
+    function abrirModalFiltro() { 
+      const idViagem = document.getElementById('selectViagem').value;
+      const waypoints = appData.waypoints.filter(w => w.idViagem === idViagem);
+
+      // Gerar dropdown de cidades automaticamente baseado nos pontos cadastrados
+      const selectCidade = document.getElementById('filtroCidade');
+      selectCidade.innerHTML = '<option value="Todas">Todas as cidades</option>';
+      
+      const cidadesUnicas = [...new Set(waypoints.map(w => w.cidade?.trim()).filter(c => c))].sort();
+      cidadesUnicas.forEach(cidade => {
+        const opt = document.createElement('option');
+        opt.value = cidade;
+        opt.textContent = cidade;
+        selectCidade.appendChild(opt);
+      });
+
+      // Puxar os valores que estão ativos no momento
+      document.getElementById('filtroData').value = filtrosAtuais.statusData;
+      document.getElementById('filtroCidade').value = filtrosAtuais.cidade;
+      document.getElementById('filtroFinanceiro').value = filtrosAtuais.statusFinanceiro;
+      document.getElementById('filtroCategoria').value = filtrosAtuais.categoria;
+
+      document.getElementById('modalFiltro').classList.remove('hidden'); 
+      lucide.createIcons(); 
+    }
+    
+    function fecharModalFiltro() { 
+      document.getElementById('modalFiltro').classList.add('hidden'); 
+    }
+    
+    function salvarFiltros() {
+      filtrosAtuais = {
+        statusData: document.getElementById('filtroData').value,
+        cidade: document.getElementById('filtroCidade').value,
+        statusFinanceiro: document.getElementById('filtroFinanceiro').value,
+        categoria: document.getElementById('filtroCategoria').value
+      };
+      fecharModalFiltro();
+      atualizarBotaoFiltroUI();
+      carregarRoteiro(); // Recarrega aplicando
+    }
+
+    function limparFiltros() {
+      filtrosAtuais = { categoria: 'Todas', statusData: 'Todos', cidade: 'Todas', statusFinanceiro: 'Todos' };
+      fecharModalFiltro();
+      atualizarBotaoFiltroUI();
+      carregarRoteiro();
+    }
+
+    function atualizarBotaoFiltroUI() {
+      const btn = document.getElementById('btnFiltroRoteiro');
+      // Verifica se existe algum filtro ativo diferente do padrão ('Todas'/'Todos')
+      const temFiltroAtivo = Object.values(filtrosAtuais).some(v => v !== 'Todas' && v !== 'Todos');
+      
+      if (temFiltroAtivo) {
+        btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+        btn.classList.remove('text-slate-500', 'bg-white', 'border-slate-200');
+      } else {
+        btn.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+        btn.classList.add('text-slate-500', 'bg-white', 'border-slate-200');
+      }
+    }
+
+    // --- FUNÇÕES DO MODAL CUSTOMIZADO (ALERT / CONFIRM) ---
+
+    
+    
+        
+
+    // --- FUNÇÕES DO MODAL CUSTOMIZADO (ALERT / CONFIRM) ---
+    function showAlert(mensagem, titulo = "Aviso", tipo = 'info') {
+      return new Promise((resolve) => {
+        prepararModalAlerta(mensagem, titulo, tipo, false, resolve);
+      });
+    }
+
+    function showConfirm(mensagem, titulo = "Confirmação") {
+      return new Promise((resolve) => {
+        prepararModalAlerta(mensagem, titulo, 'aviso', true, resolve);
+      });
+    }
+
+    function prepararModalAlerta(mensagem, titulo, tipo, isConfirm, resolve) {
+      const modal = document.getElementById('modalAlertaCustom');
+      const content = document.getElementById('modalAlertaContent');
+      
+      document.getElementById('modalAlertaTitulo').textContent = titulo;
+      document.getElementById('modalAlertaMensagem').textContent = mensagem;
+
+      let iconHtml = '';
+      let iconBg = '';
+
+      if (tipo === 'erro') {
+        iconHtml = '<i data-lucide="alert-circle" class="w-6 h-6 text-rose-600"></i>';
+        iconBg = 'bg-rose-100';
+      } else if (tipo === 'sucesso') {
+        iconHtml = '<i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-600"></i>';
+        iconBg = 'bg-emerald-100';
+      } else if (tipo === 'aviso') {
+        iconHtml = '<i data-lucide="alert-triangle" class="w-6 h-6 text-amber-600"></i>';
+        iconBg = 'bg-amber-100';
+      } else {
+        iconHtml = '<i data-lucide="info" class="w-6 h-6 text-blue-600"></i>';
+        iconBg = 'bg-blue-100';
+      }
+
+      const iconContainer = document.getElementById('modalAlertaIcon');
+      iconContainer.className = `w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${iconBg}`;
+      iconContainer.innerHTML = iconHtml;
+
+      const botoesContainer = document.getElementById('modalAlertaBotoes');
+      botoesContainer.innerHTML = '';
+
+      if (isConfirm) {
+        const btnCancel = document.createElement('button');
+        btnCancel.className = "px-4 py-2 text-slate-600 font-semibold text-sm hover:bg-slate-100 rounded-xl transition";
+        btnCancel.textContent = "Cancelar";
+        btnCancel.onclick = () => { fecharModalAlerta(); resolve(false); };
+
+        const btnConfirm = document.createElement('button');
+        btnConfirm.className = "px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm rounded-xl shadow transition";
+        btnConfirm.textContent = "Confirmar";
+        btnConfirm.onclick = () => { fecharModalAlerta(); resolve(true); };
+
+        botoesContainer.appendChild(btnCancel);
+        botoesContainer.appendChild(btnConfirm);
+      } else {
+        const btnOk = document.createElement('button');
+        btnOk.className = "px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm rounded-xl shadow transition w-full sm:w-auto";
+        btnOk.textContent = "Entendi";
+        btnOk.onclick = () => { fecharModalAlerta(); resolve(true); };
+        botoesContainer.appendChild(btnOk);
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+      
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      });
+    }
+
+    function fecharModalAlerta() {
+      const modal = document.getElementById('modalAlertaCustom');
+      const content = document.getElementById('modalAlertaContent');
+      
+      modal.classList.add('opacity-0');
+      content.classList.remove('scale-100');
+      content.classList.add('scale-95');
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+    }
+    // --- FIM FUNÇÕES DO MODAL CUSTOMIZADO ---
+
+    window.onload = () => {
+      lucide.createIcons();
+      verificarAutenticacaoRaiz();
+    };
+
+    window.addEventListener('scroll', () => {
+      const btnTopo = document.getElementById('btnVoltarTopo');
+      if (window.scrollY > 300) {
+        btnTopo.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+        btnTopo.classList.add('opacity-100', 'pointer-events-auto', 'translate-y-0');
+      } else {
+        btnTopo.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+        btnTopo.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
+      }
+    });
+
+    function voltarAoTopo() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+
+    function verificarAutenticacaoRaiz() {
+      const pinSalvo = localStorage.getItem('itigo_pin_raiz');
+      if (pinSalvo) {
+        userPin = pinSalvo;
+        document.getElementById('telaBloqueio').classList.add('hidden');
+        carregarDados();
+      } else {
+        document.getElementById('telaBloqueio').classList.remove('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    async function desbloquearRaiz() {
+      const pinInput = document.getElementById('inputPinRaiz').value;
+      const res = await API({ action: 'validarPin', pin: pinInput });
+
+      if (res.sucesso) {
+        userPin = pinInput;
+        localStorage.setItem('itigo_pin_raiz', pinInput);
+        document.getElementById('telaBloqueio').classList.add('hidden');
+        document.getElementById('inputPinRaiz').value = '';
+        carregarDados();
+      } else {
+        showAlert("O PIN que você digitou está incorreto. Tente novamente.", "PIN Inválido", "erro");
+      }
+    }
+
+    function sairDoPainel() {
+      localStorage.removeItem('itigo_pin_raiz');
+      location.reload();
+    }
+
+    function abrirDetalhes() {
+      const viagemId = document.getElementById('selectViagem').value;
+      if (!viagemId) {
+        showAlert("Por favor, selecione uma viagem antes de visualizar os detalhes.", "Atenção", "aviso");
+        return;
+      }
+      window.location.href = `detalhes.html?viagem=${viagemId}`;
+    }
+
+    async function API(payload) {
+      if (userPin) payload.pin = userPin;
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
+
+    function compartilharViagemAtual() {
+      const selectViagem = document.getElementById('selectViagem');
+      const viagemId = selectViagem.value;
+      const nomeViagem = selectViagem.options[selectViagem.selectedIndex]?.text || "Viagem";
+
+      if (!viagemId) {
+        showAlert("Selecione uma viagem antes de compartilhar.", "Atenção", "aviso");
+        return;
+      }
+
+      const baseURL = window.location.origin + window.location.pathname.replace('index.html', '');
+      const linkCompartilhamento = `${baseURL}compartilhado.html?viagem=${viagemId}`;
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(linkCompartilhamento).then(() => {
+          showAlert(`O link da viagem "${nomeViagem}" foi copiado com sucesso!`, "Copiado!", "sucesso");
+        });
+      } else {
+        showAlert(`Seu navegador não suporta cópia automática. Copie o link abaixo:\n\n${linkCompartilhamento}`, "Link Gerado", "info");
+      }
+    }
+
+    function mostrarLoading(texto = "Processando...") {
+      document.getElementById('txtLoading').textContent = texto;
+      document.getElementById('modalLoading').classList.remove('hidden');
+    }
+
+    function esconderLoading() {
+      document.getElementById('modalLoading').classList.add('hidden');
+    }
+
+    async function carregarDados() {
+      try {
+        const res = await API({ action: 'getDados' });
+        if (res.sucesso) {
+          appData = res;
+          renderizarSeletorViagem();
+        }
+      } catch(e) {
+        showAlert("Ocorreu um erro ao tentar conectar com a base de dados. Verifique sua conexão.", "Erro de Conexão", "erro");
+      }
+    }
+
+    // ALTERAÇÃO AQUI: Foco inteligente na PRÓXIMA viagem a acontecer
+    function renderizarSeletorViagem() {
+      const select = document.getElementById('selectViagem');
+      select.innerHTML = '';
+
+      if (appData.viagens.length === 0) {
+        select.innerHTML = '<option value="">Nenhuma viagem encontrada</option>';
+        return;
+      }
+
+      appData.viagens.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.textContent = v.nome;
+        select.appendChild(opt);
+      });
+
+      // Lógica para auto-selecionar a viagem baseada no evento mais próximo no FUTURO
+      const agora = new Date().getTime();
+      let menorDiferencaFutura = Infinity;
+      let menorDiferencaPassada = Infinity;
+      let idViagemFutura = null;
+      let idViagemPassada = null;
+
+      if (appData.waypoints && appData.waypoints.length > 0) {
+        appData.waypoints.forEach(w => {
+          if (w.dataHora) {
+            const tempoWp = new Date(w.dataHora).getTime();
+            if (!isNaN(tempoWp)) {
+              const diferenca = tempoWp - agora;
+              if (diferenca >= 0) {
+                // É um evento que ainda vai acontecer (Futuro)
+                if (diferenca < menorDiferencaFutura) {
+                  menorDiferencaFutura = diferenca;
+                  idViagemFutura = w.idViagem;
+                }
+              } else {
+                // É um evento que já aconteceu (Passado)
+                const difAbs = Math.abs(diferenca);
+                if (difAbs < menorDiferencaPassada) {
+                  menorDiferencaPassada = difAbs;
+                  idViagemPassada = w.idViagem;
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Prioriza focar na viagem do próximo evento futuro. 
+      // Se não houver nenhum, foca na viagem do último evento que passou.
+      const viagemIdeal = idViagemFutura || idViagemPassada;
+      if (viagemIdeal) {
+        select.value = viagemIdeal;
+      }
+
+      carregarRoteiroComFocoAutomatico();
+    }
+
+    // ALTERAÇÃO AQUI: Rola para o PRÓXIMO waypoint a acontecer na viagem selecionada
+    function carregarRoteiroComFocoAutomatico() {
+      const idViagem = document.getElementById('selectViagem').value;
+      const waypointsViagem = appData.waypoints.filter(w => w.idViagem === idViagem && w.dataHora);
+
+      let idMaisProximo = null;
+      if (waypointsViagem.length > 0) {
+        const agora = new Date().getTime();
+        let menorDiferencaFutura = Infinity;
+        let menorDiferencaPassada = Infinity;
+        let idFuturo = null;
+        let idPassado = null;
+
+        waypointsViagem.forEach(w => {
+          const tempoWp = new Date(w.dataHora).getTime();
+          if (!isNaN(tempoWp)) {
+            const diferenca = tempoWp - agora;
+            if (diferenca >= 0) {
+              // Futuro ou Agora
+              if (diferenca < menorDiferencaFutura) {
+                menorDiferencaFutura = diferenca;
+                idFuturo = w.id;
+              }
+            } else {
+              // Passado
+              const difAbs = Math.abs(diferenca);
+              if (difAbs < menorDiferencaPassada) {
+                menorDiferencaPassada = difAbs;
+                idPassado = w.id;
+              }
+            }
+          }
+        });
+        
+        // Foca no próximo evento a acontecer, caso não haja, foca no mais recente passado
+        idMaisProximo = idFuturo || idPassado;
+      }
+
+      carregarRoteiro(idMaisProximo);
+    }
+
+        function carregarRoteiro(idWaypointParaFocar = null) {
+      const idViagem = document.getElementById('selectViagem').value;
+      const container = document.getElementById('listaWaypoints');
+      container.innerHTML = '';
+
+            // 1. Filtrar pela Viagem Atual e Filtros Avançados
+      let waypoints = appData.waypoints.filter(w => w.idViagem === idViagem);
+      
+      // Filtro de Categoria
+      if (filtrosAtuais.categoria !== 'Todas') {
+        waypoints = waypoints.filter(w => w.categoria === filtrosAtuais.categoria);
+      }
+
+      // Filtro de Status de Data (Agendados vs Rascunhos)
+      if (filtrosAtuais.statusData === 'ComData') {
+        waypoints = waypoints.filter(w => w.dataHora && w.dataHora.trim() !== '');
+      } else if (filtrosAtuais.statusData === 'SemData') {
+        waypoints = waypoints.filter(w => !w.dataHora || w.dataHora.trim() === '');
+      }
+
+      // Filtro de Cidade
+      if (filtrosAtuais.cidade !== 'Todas') {
+        waypoints = waypoints.filter(w => w.cidade && w.cidade.trim().toLowerCase() === filtrosAtuais.cidade.toLowerCase());
+      }
+
+      // Filtro Financeiro (Orçamentos e Pagamentos)
+      if (filtrosAtuais.statusFinanceiro !== 'Todos') {
+        waypoints = waypoints.filter(w => {
+          const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+          
+          let valorPagoItem = w.valorPago || 0;
+          if (w.gastosExtras) {
+            try { valorPagoItem += JSON.parse(w.gastosExtras).reduce((s, c) => s + c.valor, 0); } catch(e){}
+          }
+
+          if (filtrosAtuais.statusFinanceiro === 'Orcado') return valorOrcadoItem > 0;
+          if (filtrosAtuais.statusFinanceiro === 'NaoOrcado') return valorOrcadoItem === 0;
+          if (filtrosAtuais.statusFinanceiro === 'Pago') return valorPagoItem > 0;
+          if (filtrosAtuais.statusFinanceiro === 'NaoPago') return valorPagoItem === 0;
+          
+          return true;
+        });
+      }
+
+
+            // 2. Aplicar a Ordenação Solicitada
+      waypoints.sort((a, b) => {
+        if (ordenacaoAtual === 'maior_orcado') {
+           const valA = a.valorOrcado !== undefined ? a.valorOrcado : (a.valorEstimado || 0);
+           const valB = b.valorOrcado !== undefined ? b.valorOrcado : (b.valorEstimado || 0);
+           return valB - valA;
+        } else if (ordenacaoAtual === 'maior_pago') {
+           let pagoA = a.valorPago || 0;
+           if (a.gastosExtras) { try { pagoA += JSON.parse(a.gastosExtras).reduce((s, c) => s + c.valor, 0); } catch(e){} }
+           
+           let pagoB = b.valorPago || 0;
+           if (b.gastosExtras) { try { pagoB += JSON.parse(b.gastosExtras).reduce((s, c) => s + c.valor, 0); } catch(e){} }
+           return pagoB - pagoA;
+        } else {
+           // 'data' (Cronológico - Padrão)
+           // CORREÇÃO: Lidar com o cenário onde AMBOS os itens não possuem data
+           if (!a.dataHora && !b.dataHora) return 0;
+           if (!a.dataHora) return 1;
+           if (!b.dataHora) return -1;
+           return new Date(a.dataHora) - new Date(b.dataHora);
+        }
+      });
+
+      // 3. Cálculo Financeiro (Mantendo a lógica de agrupar o Orçado caso partilhem horário)
+      const gruposParaFinanceiro = {};
+      waypoints.forEach(w => {
+        const chaveTempo = w.dataHora ? w.dataHora : `sem_data_${Math.random()}`;
+        if (!gruposParaFinanceiro[chaveTempo]) gruposParaFinanceiro[chaveTempo] = [];
+        gruposParaFinanceiro[chaveTempo].push(w);
+      });
+
+      let orcadoTotal = 0;
+      let pago = 0;
+      let diferencaGeral = 0; 
+
+      Object.values(gruposParaFinanceiro).forEach(itens => {
+        const maiorOrcadoDoHorario = Math.max(...itens.map(w => (w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0))));
+        orcadoTotal += maiorOrcadoDoHorario;
+
+        itens.forEach(w => {
+          const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+          
+          let somaExtras = 0;
+          if (w.gastosExtras) {
+            try {
+              const extrasArr = JSON.parse(w.gastosExtras);
+              somaExtras = extrasArr.reduce((acc, curr) => acc + curr.valor, 0);
+            } catch(e) {}
+          }
+          
+          const valorPagoItem = (w.valorPago || 0) + somaExtras;
+          pago += valorPagoItem;
+          
+          if (valorPagoItem > 0) {
+            diferencaGeral += (valorOrcadoItem - valorPagoItem);
+          }
+        });
+      });
+
+      // Atualiza o Topbar Financeiro
+      document.getElementById('totalOrcado').textContent = `R$ ${orcadoTotal.toFixed(2)}`;
+      document.getElementById('totalPago').textContent = `R$ ${pago.toFixed(2)}`;
+
+      const containerFalta = document.getElementById('containerFalta');
+      const labelFalta = document.getElementById('labelFalta');
+      const totalFalta = document.getElementById('totalFalta');
+
+      if (diferencaGeral < 0) {
+        totalFalta.textContent = `R$ ${Math.abs(diferencaGeral).toFixed(2)}`;
+        containerFalta.className = "flex flex-col items-end px-2 py-0.5 rounded-md bg-rose-50 transition-colors";
+        labelFalta.className = "text-[9px] font-bold text-rose-600 uppercase";
+        totalFalta.className = "text-xs font-bold text-rose-700";
+        labelFalta.textContent = "Excedido";
+      } else {
+        totalFalta.textContent = `R$ ${diferencaGeral.toFixed(2)}`;
+        containerFalta.className = "flex flex-col items-end px-2 py-0.5 rounded-md bg-emerald-50 transition-colors";
+        labelFalta.className = "text-[9px] font-bold text-emerald-600 uppercase";
+        totalFalta.className = "text-xs font-bold text-emerald-700";
+        labelFalta.textContent = "Economia";
+      }
+
+      if (waypoints.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium text-sm">Nenhum ponto encontrado.</div>`;
+        return;
+      }
+
+      // 4. Preparar Grupos para Renderização da Tela
+      const gruposPorRender = {};
+      waypoints.forEach((w, index) => {
+        let chaveRender;
+        // Se NÃO estivermos ordenando por data, cancelamos o carrossel. 
+        // Cada item ganha uma chave única, sendo renderizado um embaixo do outro.
+        if (ordenacaoAtual !== 'data') {
+            chaveRender = `item_isolado_${index}`;
+        } else {
+            chaveRender = w.dataHora ? w.dataHora : `sem_data_${Math.random()}`;
+        }
+        
+        if (!gruposPorRender[chaveRender]) gruposPorRender[chaveRender] = [];
+        gruposPorRender[chaveRender].push(w);
+      });
+
+      let elementoParaFocar = null;
+
+      Object.keys(gruposPorRender).forEach(chave => {
+        const itensDoGrupo = gruposPorRender[chave];
+        const primeiroWp = itensDoGrupo[0];
+
+        const blocoDiv = document.createElement('div');
+        blocoDiv.className = "space-y-2";
+
+        // Se estivermos agrupando por carrossel (mesma data/hora), exibe o título da hora
+        if (itensDoGrupo.length > 1 && primeiroWp.dataHora && ordenacaoAtual === 'data') {
+          const headerOpcoes = document.createElement('div');
+          headerOpcoes.className = "flex items-center gap-1.5 text-xs text-indigo-600 font-bold px-1";
+          headerOpcoes.innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i><span>${formatarData(primeiroWp.dataHora)}</span>`;
+          blocoDiv.appendChild(headerOpcoes);
+        }
+
+        if (itensDoGrupo.length > 1) {
+          const carrosselContainerDiv = document.createElement('div');
+          carrosselContainerDiv.className = "space-y-2";
+
+          const carrosselDiv = document.createElement('div');
+          carrosselDiv.className = "flex gap-3 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-1 w-full";
+
+          itensDoGrupo.forEach((w) => {
+            const cardHtml = criarCardHTML(w, false);
+            const cardWrapper = document.createElement('div');
+            cardWrapper.id = `card-wp-${w.id}`;
+            cardWrapper.className = "w-full flex-shrink-0 snap-start transition-all duration-300";
+            cardWrapper.innerHTML = cardHtml;
+            carrosselDiv.appendChild(cardWrapper);
+
+            if (w.id === idWaypointParaFocar) elementoParaFocar = cardWrapper;
+          });
+
+          carrosselContainerDiv.appendChild(carrosselDiv);
+
+          const dotsDiv = document.createElement('div');
+          dotsDiv.className = "flex justify-center items-center gap-1.5 pt-1";
+          
+          itensDoGrupo.forEach((_, index) => {
+            const dot = document.createElement('button');
+            dot.className = `w-2 h-2 rounded-full transition-all ${index === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-300'}`;
+            dot.onclick = () => {
+              const targetCard = carrosselDiv.children[index];
+              if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            };
+            dotsDiv.appendChild(dot);
+          });
+
+          carrosselDiv.addEventListener('scroll', () => {
+            const scrollLeft = carrosselDiv.scrollLeft;
+            const cardWidth = carrosselDiv.offsetWidth;
+            const activeIndex = Math.round(scrollLeft / cardWidth);
+            
+            Array.from(dotsDiv.children).forEach((dot, idx) => {
+              if (idx === activeIndex) {
+                dot.className = "w-4 h-2 rounded-full bg-indigo-600 transition-all";
+              } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-300 transition-all";
+              }
+            });
+          });
+
+          carrosselContainerDiv.appendChild(dotsDiv);
+          blocoDiv.appendChild(carrosselContainerDiv);
+                } else {
+          const w = itensDoGrupo[0];
+          
+          // CORREÇÃO: Força a variável a ser TRUE para que a data/hora
+          // sempre apareça dentro do card quando ele for o único item do horário.
+          const exibirDataNoCard = true; 
+          
+          const cardHtml = criarCardHTML(w, exibirDataNoCard);
+          
+          const cardWrapper = document.createElement('div');
+
+          cardWrapper.id = `card-wp-${w.id}`;
+          cardWrapper.className = "transition-all duration-300";
+          cardWrapper.innerHTML = cardHtml;
+          blocoDiv.appendChild(cardWrapper);
+
+          if (w.id === idWaypointParaFocar) elementoParaFocar = cardWrapper;
+        }
+
+        container.appendChild(blocoDiv);
+      });
+
+      lucide.createIcons();
+
+      // Rolar até o elemento (caso auto-foco)
+      if (elementoParaFocar) {
+        setTimeout(() => {
+          elementoParaFocar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          elementoParaFocar.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-2', 'scale-[1.02]');
+          setTimeout(() => {
+            elementoParaFocar.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-2', 'scale-[1.02]');
+          }, 2000);
+        }, 150);
+      }
+    }
+
+
+    function criarCardHTML(w, exibirDataHoraNoCard = false) {
+      const temCidade = w.cidade && w.cidade.trim() !== "";
+      const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+      
+      let somaExtras = 0;
+      if (w.gastosExtras) {
+        try {
+          const extrasArr = JSON.parse(w.gastosExtras);
+          somaExtras = extrasArr.reduce((acc, curr) => acc + curr.valor, 0);
+        } catch(e) {}
+      }
+      const valorPagoItem = (w.valorPago || 0) + somaExtras;
+
+      let dataHoraFormatada = "";
+      if (exibirDataHoraNoCard && w.dataHora) {
+        dataHoraFormatada = formatarData(w.dataHora);
+      }
+
+      let corValorPago = "text-slate-800";
+      if (valorPagoItem > 0) {
+        if (valorOrcadoItem < valorPagoItem) {
+          corValorPago = "text-rose-600";
+        } else {
+          corValorPago = "text-blue-600";
+        }
+      }
+      
+      let corBadgeCategoria = "bg-slate-100 text-slate-500";
+      if (w.categoria === "Alimentação") corBadgeCategoria = "bg-orange-50 text-orange-600 border border-orange-100";
+      if (w.categoria === "Hospedagem") corBadgeCategoria = "bg-indigo-50 text-indigo-600 border border-indigo-100";
+      if (w.categoria === "Transporte") corBadgeCategoria = "bg-sky-50 text-sky-600 border border-sky-100";
+      if (w.categoria === "Passeios") corBadgeCategoria = "bg-emerald-50 text-emerald-600 border border-emerald-100";
+      if (w.categoria === "Outros") corBadgeCategoria = "bg-slate-50 text-slate-600 border border-slate-100";
+      if (w.categoria === "Lembranças") corBadgeCategoria = "bg-teal-50 text-teal-600 border border-teal-100";
+
+      return `
+        <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative h-full flex flex-col justify-between">
+          <div>
+            ${w.linkFoto ? `<img src="${w.linkFoto}" class="w-full h-36 object-cover" onerror="this.style.display='none'">` : ''}
+            <div class="p-4 space-y-2">
+              <div class="flex justify-between items-start gap-2">
+                <div class="min-w-0 flex-1">
+                  <span class="inline-block text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-wider mb-1">
+                    ${w.cidade || 'Atividade Geral'}
+                  </span>
+                  <h3 class="font-bold text-slate-900 text-sm sm:text-base leading-tight break-words" 
+                      style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                    ${w.atividade}
+                  </h3>
+              ${w.categoria && w.categoria !== 'Em branco' ? `
+                <span class="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${corBadgeCategoria}">
+                  ${w.categoria}
+                </span>
+                ` : ''}
+                  
+                  ${dataHoraFormatada ? `
+                    <div class="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                      <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> 
+                      <span>${dataHoraFormatada}</span>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  ${temCidade ? `
+                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${w.atividade}, ${w.cidade}`)}" target="_blank" class="bg-indigo-50 text-indigo-600 p-2 rounded-xl hover:bg-indigo-100 transition" title="Abrir no Maps">
+                      <i data-lucide="map-pin" class="w-5 h-5"></i>
+                    </a>
+                    <a href="https://waze.com/ul?q=${encodeURIComponent(`${w.atividade}, ${w.cidade}`)}&navigate=yes" target="_blank" class="bg-sky-50 text-sky-600 p-2 rounded-xl hover:bg-sky-100 transition" title="Abrir no Waze">
+                      <i data-lucide="navigation" class="w-5 h-5"></i>
+                    </a>
+                  ` : ''}
+                  <button onclick='abrirModalWaypoint(${JSON.stringify(w).replace(/'/g, "&#39;")})' class="text-slate-500 hover:text-indigo-600 p-2 rounded-xl hover:bg-slate-100 transition ml-1" title="Editar"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                </div>
+              </div>
+              ${w.observacoes ? `<p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">${w.observacoes}</p>` : ''}
+            </div>
+          </div>
+          <div class="px-4 pb-4 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px]">Orçado / Pago</span>
+              <span class="font-bold text-slate-700">R$ ${valorOrcadoItem.toFixed(2)}</span> / 
+              <span class="font-extrabold ${corValorPago}">R$ ${valorPagoItem.toFixed(2)}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              ${w.linkMidia ? `<a href="${w.linkMidia}" target="_blank" class="text-rose-500 bg-rose-50 p-2 rounded-xl" title="Vídeo"><i data-lucide="video" class="w-4 h-4"></i></a>` : ''}
+              <button onclick="abrirModalPagamento('${w.id}')" class="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-xl border border-blue-200 hover:bg-blue-100 transition">Pagar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function formatarData(dataStr) {
+      if (!dataStr) return '';
+      const data = new Date(dataStr);
+      if (isNaN(data.getTime())) return dataStr;
+      const dataCorrigida = new Date(data.getTime() - (3 * 60 * 60 * 1000));
+      const dia = String(dataCorrigida.getUTCDate()).padStart(2, '0');
+      const mes = String(dataCorrigida.getUTCMonth() + 1).padStart(2, '0');
+      const ano = dataCorrigida.getUTCFullYear();
+      const hora = String(dataCorrigida.getUTCHours()).padStart(2, '0');
+      const min = String(dataCorrigida.getUTCMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} às ${hora}:${min}`;
+    }
+
+    function abrirModalViagem() { document.getElementById('modalViagem').classList.remove('hidden'); }
+    function fecharModalViagem() { document.getElementById('modalViagem').classList.add('hidden'); }
+
+    async function salvarViagem() {
+      const nome = document.getElementById('inputNomeViagem').value;
+      if(!nome) return;
+      fecharModalViagem();
+      mostrarLoading("Criando viagem...");
+      try {
+        const res = await API({ action: 'criarViagem', nomeViagem: nome });
+        if (res.sucesso) {
+          document.getElementById('inputNomeViagem').value = '';
+          await carregarDados();
+          document.getElementById('selectViagem').value = res.id;
+          carregarRoteiroComFocoAutomatico();
+        }
+      } finally { esconderLoading(); }
+    }
+
+    function abrirModalRenomearViagem() {
+      const selectViagem = document.getElementById('selectViagem');
+      const idAtual = selectViagem.value;
+      const nomeAtual = selectViagem.options[selectViagem.selectedIndex]?.text || "";
+
+      if (!idAtual) {
+        showAlert("Selecione uma viagem na lista antes de tentar renomear.", "Atenção", "aviso");
+        return;
+      }
+
+      document.getElementById('inputNovoNomeViagem').value = nomeAtual;
+      document.getElementById('modalRenomearViagem').classList.remove('hidden');
+    }
+
+    function fecharModalRenomearViagem() {
+      document.getElementById('modalRenomearViagem').classList.add('hidden');
+    }
+
+    async function salvarNovoNomeViagem() {
+      const idViagemAtual = document.getElementById('selectViagem').value;
+      const novoNome = document.getElementById('inputNovoNomeViagem').value.trim();
+
+      if (!novoNome) {
+        showAlert("O nome da viagem não pode ficar em branco.", "Atenção", "aviso");
+        return;
+      }
+
+      fecharModalRenomearViagem();
+      mostrarLoading("Renomeando viagem...");
+
+      try {
+        const res = await API({ action: 'renomearViagem', viagemId: idViagemAtual, novoNome: novoNome });
+        if (res.sucesso) {
+          await carregarDados();
+          document.getElementById('selectViagem').value = idViagemAtual;
+          carregarRoteiro();
+        } else {
+          showAlert(res.mensagem || "Ocorreu um erro inesperado ao renomear a viagem.", "Erro", "erro");
+        }
+      } catch (e) {
+        showAlert("Não foi possível conectar ao servidor para renomear a viagem.", "Erro", "erro");
+      } finally {
+        esconderLoading();
+      }
+    }
+
+    function abrirModalWaypoint(wp = null) {
+      const btnExcluir = document.getElementById('btnExcluirModal');
+      const btnDuplicar = document.getElementById('btnDuplicarModal'); 
+
+      if (wp && typeof wp === 'object') {
+        document.getElementById('tituloModalWp').textContent = 'Editar Waypoint';
+        btnExcluir.classList.remove('hidden');
+        btnDuplicar.classList.remove('hidden'); 
+        document.getElementById('wpId').value = wp.id || '';
+        
+        document.getElementById('wpAtividade').value = wp.atividade || '';
+        document.getElementById('wpCidade').value = wp.cidade || '';
+        
+        document.getElementById('wpCategoria').value = wp.categoria || 'Outros'; 
+        
+        if (wp.dataHora) {
+          const data = new Date(wp.dataHora);
+          if (!isNaN(data.getTime())) {
+            const dataCorrigida = new Date(data.getTime() - (3 * 60 * 60 * 1000));
+            const ano = dataCorrigida.getUTCFullYear();
+            const mes = String(dataCorrigida.getUTCMonth() + 1).padStart(2, '0');
+            const dia = String(dataCorrigida.getUTCDate()).padStart(2, '0');
+            const hora = String(dataCorrigida.getUTCHours()).padStart(2, '0');
+            const min = String(dataCorrigida.getUTCMinutes()).padStart(2, '0');
+            document.getElementById('wpData').value = `${ano}-${mes}-${dia}`;
+            document.getElementById('wpHora').value = `${hora}:${min}`;
+          }
+        }
+        document.getElementById('wpValorOrcado').value = wp.valorOrcado !== undefined ? wp.valorOrcado : (wp.valorEstimado || '');
+        document.getElementById('wpValorPago').value = wp.valorPago || '';
+        document.getElementById('wpLinkFoto').value = wp.linkFoto || '';
+        document.getElementById('wpLinkMidia').value = wp.linkMidia || '';
+        document.getElementById('wpObservacoes').value = wp.observacoes || '';
+      } else {
+        document.getElementById('tituloModalWp').textContent = 'Novo Waypoint';
+        btnExcluir.classList.add('hidden');
+        btnDuplicar.classList.add('hidden'); 
+        document.getElementById('wpId').value = '';
+        document.getElementById('wpAtividade').value = '';
+        document.getElementById('wpCidade').value = '';
+        document.getElementById('wpCategoria').value = 'Outros'; 
+        document.getElementById('wpData').value = '';
+        document.getElementById('wpHora').value = '';
+        document.getElementById('wpValorOrcado').value = '';
+        document.getElementById('wpValorPago').value = '';
+        document.getElementById('wpLinkFoto').value = '';
+        document.getElementById('wpLinkMidia').value = '';
+        document.getElementById('wpObservacoes').value = '';
+      }
+      atualizarPreviews();
+      document.getElementById('modalWaypoint').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function fecharModalWaypoint() { document.getElementById('modalWaypoint').classList.add('hidden'); }
+
+    function atualizarPreviews() {
+      const atividade = document.getElementById('wpAtividade').value.trim();
+      const cidade = document.getElementById('wpCidade').value.trim();
+      const box = document.getElementById('boxPreviewMaps');
+      const iframe = document.getElementById('iframeMapsPreview');
+      const btnTestar = document.getElementById('btnTestarMaps');
+
+      if (cidade !== "") {
+        const termoBusca = encodeURIComponent(`${atividade}, ${cidade}`);
+        iframe.src = `https://maps.google.com/maps?q=${termoBusca}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+        btnTestar.href = `https://www.google.com/maps/search/?api=1&query=${termoBusca}`;
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+        iframe.src = '';
+      }
+
+      const linkFoto = document.getElementById('wpLinkFoto').value.trim();
+      const boxFoto = document.getElementById('boxPreviewFoto');
+      const imgPreview = document.getElementById('imgPreview');
+      document.getElementById('btnPesquisarImagens').href = `https://www.google.com/search?q=${encodeURIComponent(`${atividade}${cidade} turismo`.trim())}&tbm=isch`;
+
+      if (linkFoto) {
+        imgPreview.src = linkFoto;
+        boxFoto.classList.remove('hidden');
+      } else {
+        boxFoto.classList.add('hidden');
+      }
+    }
+
+    async function salvarWaypoint() {
+      const selectViagemEl = document.getElementById('selectViagem');
+      const idViagemAtual = selectViagemEl.value;
+      const nomeViagem = selectViagemEl.options[selectViagemEl.selectedIndex]?.text || "Viagem";
+
+      if (!idViagemAtual) {
+        showAlert("Selecione ou crie uma viagem antes de salvar o waypoint.", "Atenção", "aviso");
+        return;
+      }
+
+      let dataHoraCombinada = '';
+      const dataSelecionada = document.getElementById('wpData').value;
+      const horaSelecionada = document.getElementById('wpHora').value;
+      
+      if (dataSelecionada) {
+        dataHoraCombinada = dataSelecionada;
+        if (horaSelecionada) {
+          dataHoraCombinada += `T${horaSelecionada}:00`;
+        } else {
+          dataHoraCombinada += `T00:00:00`;
+        }
+      }
+      
+      const wpIdInput = document.getElementById('wpId').value;
+      const valorOrcadoInput = parseFloat(document.getElementById('wpValorOrcado').value) || 0;
+      
+      let gastosExtrasAtual = '[]';
+      if (wpIdInput) {
+        const wpExistente = appData.waypoints.find(w => w.id === wpIdInput);
+        if (wpExistente && wpExistente.gastosExtras) {
+          gastosExtrasAtual = wpExistente.gastosExtras;
+        }
+      }
+
+      const wp = {
+        id: wpIdInput,
+        idViagem: idViagemAtual,
+        nomeViagem: nomeViagem,
+        atividade: document.getElementById('wpAtividade').value,
+        cidade: document.getElementById('wpCidade').value,
+        dataHora: dataHoraCombinada,
+        valorOrcado: valorOrcadoInput,
+        valorEstimado: valorOrcadoInput,
+        valorPago: parseFloat(document.getElementById('wpValorPago').value) || 0,
+        gastosExtras: gastosExtrasAtual,
+        linkFoto: document.getElementById('wpLinkFoto').value,
+        linkMidia: document.getElementById('wpLinkMidia').value,
+        observacoes: document.getElementById('wpObservacoes').value,
+        categoria: document.getElementById('wpCategoria').value 
+      };
+
+      fecharModalWaypoint();
+      mostrarLoading(wp.id ? "Atualizando..." : "Salvando waypoint...");
+
+      try {
+        const res = await API({ action: 'salvarWaypoint', waypoint: wp });
+        if(res.sucesso) {
+          await carregarDados();
+          document.getElementById('selectViagem').value = idViagemAtual;
+          carregarRoteiro(wp.id || res.id);
+        }
+      } finally { 
+        esconderLoading(); 
+      }
+    }
+
+    async function excluirWaypointDoModal() {
+      const idWaypoint = document.getElementById('wpId').value;
+      if (!idWaypoint) return;
+
+      const confirmado = await showConfirm("Tem certeza que deseja excluir este waypoint? Esta ação não pode ser desfeita.", "Excluir Waypoint");
+      if (!confirmado) return;
+      
+      const idViagemAtual = document.getElementById('selectViagem').value;
+      fecharModalWaypoint();
+      mostrarLoading("Excluindo...");
+      try {
+        const res = await API({ action: 'excluirWaypoint', idWaypoint: idWaypoint });
+        if (res.sucesso) {
+          await carregarDados();
+          document.getElementById('selectViagem').value = idViagemAtual;
+          carregarRoteiro();
+        }
+      } finally { esconderLoading(); }
+    }
+
+    function duplicarWaypointNoModal() {
+      document.getElementById('wpId').value = '';
+
+      const inputAtividade = document.getElementById('wpAtividade');
+      if (inputAtividade.value) {
+        inputAtividade.value = inputAtividade.value + " (Cópia)";
+      }
+
+      document.getElementById('tituloModalWp').textContent = 'Novo Waypoint (Cópia)';
+      document.getElementById('btnExcluirModal').classList.add('hidden');
+      document.getElementById('btnDuplicarModal').classList.add('hidden');
+
+      showAlert("Cópia gerada! Edite os horários ou demais dados e clique em 'Salvar Waypoint'.", "Waypoint Duplicado", "sucesso");
+    }
+
+    // --- NOVO SISTEMA DE PAGAMENTOS E GASTOS EXTRAS ---
+    let gastosExtrasTemporarios = [];
+
+    function abrirModalPagamento(id) {
+      const wp = appData.waypoints.find(w => w.id === id);
+      if (!wp) return;
+      
+      document.getElementById('pagWpId').value = id;
+      document.getElementById('pagValorInput').value = wp.valorPago || '';
+      
+      document.getElementById('novoGastoMotivo').value = '';
+      document.getElementById('novoGastoValor').value = '';
+      
+      if (wp.gastosExtras) {
+        try { gastosExtrasTemporarios = JSON.parse(wp.gastosExtras); } 
+        catch(e) { gastosExtrasTemporarios = []; }
+      } else {
+        gastosExtrasTemporarios = [];
+      }
+      
+      renderizarGastosModal();
+      document.getElementById('modalPagamento').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function fecharModalPagamento() { 
+      document.getElementById('modalPagamento').classList.add('hidden'); 
+    }
+
+    function renderizarGastosModal() {
+      const lista = document.getElementById('listaGastosExtrasModal');
+      lista.innerHTML = '';
+      
+      let somaExtras = 0;
+      
+      if (gastosExtrasTemporarios.length === 0) {
+        lista.innerHTML = '<p class="text-[10px] text-slate-400 text-center italic py-2">Nenhum gasto extra registrado.</p>';
+      } else {
+        gastosExtrasTemporarios.forEach((gasto, index) => {
+          somaExtras += gasto.valor;
+          lista.innerHTML += `
+            <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm text-xs">
+              <span class="font-medium text-slate-700 flex-1 truncate pr-2">${gasto.motivo}</span>
+              <span class="font-bold text-slate-600 pr-3">R$ ${gasto.valor.toFixed(2)}</span>
+              <button onclick="removerGastoLocal(${index})" class="text-rose-500 hover:bg-rose-50 p-1.5 rounded-md transition" title="Remover Gasto">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          `;
+        });
+      }
+      
+      const valorBase = parseFloat(document.getElementById('pagValorInput').value) || 0;
+      const totalGeral = valorBase + somaExtras;
+      document.getElementById('displayTotalPago').textContent = `R$ ${totalGeral.toFixed(2)}`;
+      
+      lucide.createIcons();
+    }
+
+    function adicionarGastoLocal() {
+      const motivo = document.getElementById('novoGastoMotivo').value.trim();
+      const valor = parseFloat(document.getElementById('novoGastoValor').value);
+      
+      if (!motivo) { showAlert("Digite um motivo para o gasto extra.", "Atenção", "aviso"); return; }
+      if (isNaN(valor) || valor <= 0) { showAlert("Digite um valor válido.", "Atenção", "aviso"); return; }
+      
+      gastosExtrasTemporarios.push({ motivo, valor });
+      
+      document.getElementById('novoGastoMotivo').value = '';
+      document.getElementById('novoGastoValor').value = '';
+      
+      renderizarGastosModal();
+    }
+
+    function removerGastoLocal(index) {
+      gastosExtrasTemporarios.splice(index, 1);
+      renderizarGastosModal();
+    }
+    
+    async function salvarPagamentos() {
+      const id = document.getElementById('pagWpId').value;
+      const wpAtual = appData.waypoints.find(w => w.id === id);
+      if (!wpAtual) return;
+      
+      const novoValorBase = parseFloat(document.getElementById('pagValorInput').value) || 0;
+      const gastosString = JSON.stringify(gastosExtrasTemporarios);
+      const idViagemAtual = document.getElementById('selectViagem').value;
+      
+      fecharModalPagamento();
+      mostrarLoading("Salvando pagamentos...");
+      
+      const waypointAtualizado = {
+        ...wpAtual,
+        valorPago: novoValorBase,
+        gastosExtras: gastosString
+      };
+      
+      try {
+        const res = await API({ action: 'salvarWaypoint', waypoint: waypointAtualizado });
+        if(res.sucesso) {
+          await carregarDados();
+          document.getElementById('selectViagem').value = idViagemAtual;
+          carregarRoteiro(id);
+        }
+      } finally { 
+        esconderLoading(); 
+      }
+    }
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(registration => {
+            console.log('ServiceWorker registrado com sucesso:', registration.scope);
+          })
+          .catch(error => {
+            console.log('Falha ao registrar o ServiceWorker:', error);
+          });
+      });
+    }
+  </script>
+
+</body>
+</html>
+  
