@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItiGo - Detalhes da Viagem</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20">
+
+  <script>
+    // Substitua pela sua URL caso necessário, mantive a mesma.
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzC1y007F0EFjiiAT077yeXG-LoqUGXGbAjIrmUtjpWvMLRIg-e1dqGAqMiwkClrfKf/exec";
+  </script>
+
+  <header class="sticky top-0 z-40 glass border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-2">
+      <button onclick="voltar()" class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 hover:bg-slate-50 transition">
+        <i data-lucide="arrow-left" class="w-5 h-5 text-slate-700"></i>
+      </button>
+      <h1 class="font-bold text-xl tracking-tight text-slate-900">Iti<span class="text-indigo-600">Go</span> <span class="text-slate-400 text-sm font-normal">| Detalhes</span></h1>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+
+    <!-- Cabeçalho da Viagem & Progresso -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+      <h2 id="nomeViagem" class="font-bold text-xl text-slate-800">Carregando...</h2>
+      <p id="infoDatas" class="text-sm text-slate-500 flex items-center gap-1 mt-1">
+        <i data-lucide="calendar" class="w-4 h-4"></i> <span id="txtDatas">--/-- até --/--</span>
+      </p>
+      
+      <!-- Progresso -->
+      <div class="mt-4">
+        <div class="flex justify-between text-xs font-bold text-slate-500 mb-1">
+          <span>Progresso do Roteiro</span>
+          <span id="txtProgresso">0%</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div id="barraProgresso" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid de KPIs Financeiros (Orçado, Pago, Diferença) -->
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center">
+        <span class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Orçado</span>
+        <span id="kpiOrcado" class="text-sm font-extrabold text-slate-700">R$ 0</span>
+      </div>
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center">
+        <span class="block text-[10px] font-bold text-blue-500 uppercase mb-1">Pago</span>
+        <span id="kpiPago" class="text-sm font-extrabold text-blue-600">R$ 0</span>
+      </div>
+      <div id="boxDiferenca" class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center transition-colors">
+        <span id="labelDiferenca" class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Diferença</span>
+        <span id="kpiDiferenca" class="text-sm font-extrabold text-slate-700">R$ 0</span>
+      </div>
+    </div>
+
+    <!-- Gastos por Categoria -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+      <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
+        <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i> Gastos por Categoria
+      </h3>
+      <div id="listaCategorias" class="space-y-3 pt-2">
+        <!-- Renderizado via JS -->
+      </div>
+    </div>
+
+    <!-- Gastos por Dia -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+      <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
+        <i data-lucide="calendar-days" class="w-4 h-4 text-amber-500"></i> Gastos por Dia
+      </h3>
+      <div id="listaGastosDia" class="space-y-3 pt-2">
+        <!-- Renderizado via JS -->
+      </div>
+    </div>
+
+    <!-- Diárias por Cidade (Baseado em Hospedagem) -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+      <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
+        <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i> Tempo por Cidade
+      </h3>
+      <p class="text-[10px] text-slate-400 leading-tight">Calculado do dia de entrada na hospedagem até a próxima (ou fim da viagem).</p>
+      <div id="listaCidades" class="grid grid-cols-2 gap-2 pt-2">
+        <!-- Renderizado via JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <div id="modalLoading" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl flex flex-col items-center space-y-3">
+      <div class="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent"></div>
+      <p class="font-bold text-slate-800 text-base">Analisando dados...</p>
+    </div>
+  </div>
+
+  <script>
+    window.onload = () => {
+      lucide.createIcons();
+      carregarDados();
+    };
+
+    function voltar() {
+      window.history.back();
+    }
+
+    async function carregarDados() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viagemIdUrl = urlParams.get('viagem');
+
+      if (!viagemIdUrl) {
+        alert("Nenhuma viagem especificada.");
+        voltar();
+        return;
+      }
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'getDados', viagemId: viagemIdUrl })
+        });
+        const data = await res.json();
+
+        if (data.sucesso) {
+          const viagemInfo = data.viagens.find(v => String(v.id) === String(viagemIdUrl));
+          const waypoints = data.waypoints.filter(w => String(w.idViagem) === String(viagemIdUrl));
+
+          if (viagemInfo) document.getElementById('nomeViagem').textContent = viagemInfo.nome;
+          
+          processarDashboard(waypoints);
+        }
+      } catch (e) {
+        alert("Erro ao carregar detalhes.");
+      } finally {
+        document.getElementById('modalLoading').classList.add('hidden');
+      }
+    }
+
+        function processarDashboard(waypoints) {
+      if (waypoints.length === 0) {
+        document.getElementById('txtDatas').textContent = "Nenhum ponto cadastrado.";
+        return;
+      }
+
+      // Ordenar waypoints cronologicamente para uso geral
+      const waypointsOrdenados = [...waypoints]
+        .filter(w => w.dataHora)
+        .sort((a, b) => new Date(a.dataHora) - new Date(b.dataHora));
+
+      // 1. Processar Datas e Progresso
+      const agora = new Date().getTime();
+      let concluidos = 0;
+      let datasValidas = [];
+
+      waypoints.forEach(w => {
+        if (w.dataHora) {
+          const tempo = new Date(w.dataHora).getTime();
+          if (!isNaN(tempo)) {
+            datasValidas.push(tempo);
+            if (tempo < agora) concluidos++;
+          }
+        }
+      });
+
+      if (datasValidas.length > 0) {
+        const minData = new Date(Math.min(...datasValidas));
+        const maxData = new Date(Math.max(...datasValidas));
+        document.getElementById('txtDatas').textContent = `${formatarDataCurta(minData)} até ${formatarDataCurta(maxData)}`;
+        
+        const progresso = Math.round((concluidos / waypoints.length) * 100);
+        document.getElementById('txtProgresso').textContent = `${progresso}%`;
+        document.getElementById('barraProgresso').style.width = `${progresso}%`;
+      }
+
+      // 2. Processar Financeiro
+      let orcadoTotal = 0;
+      let pagoTotal = 0;
+      let diferencaGeral = 0;
+
+      const gruposPorHorario = {};
+      waypoints.forEach(w => {
+        const chave = w.dataHora ? w.dataHora : `sem_data_${Math.random()}`;
+        if (!gruposPorHorario[chave]) gruposPorHorario[chave] = [];
+        gruposPorHorario[chave].push(w);
+      });
+
+      Object.keys(gruposPorHorario).forEach(chave => {
+        const itens = gruposPorHorario[chave];
+        const maiorOrcadoDoHorario = Math.max(...itens.map(w => (w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0))));
+        orcadoTotal += maiorOrcadoDoHorario;
+
+        itens.forEach(w => {
+          const valorOrcadoItem = w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0);
+          const valorPagoItem = w.valorPago || 0;
+          pagoTotal += valorPagoItem;
+          
+          if (valorPagoItem > 0) {
+            diferencaGeral += (valorOrcadoItem - valorPagoItem);
+          }
+        });
+      });
+
+      document.getElementById('kpiOrcado').textContent = `R$ ${orcadoTotal.toFixed(2)}`;
+      document.getElementById('kpiPago').textContent = `R$ ${pagoTotal.toFixed(2)}`;
+
+      const boxDiferenca = document.getElementById('boxDiferenca');
+      const labelDiferenca = document.getElementById('labelDiferenca');
+      const kpiDiferenca = document.getElementById('kpiDiferenca');
+
+      if (diferencaGeral < 0) {
+        kpiDiferenca.textContent = `R$ ${Math.abs(diferencaGeral).toFixed(2)}`;
+        boxDiferenca.className = "bg-rose-50 p-3 rounded-2xl shadow-sm border border-rose-100 flex flex-col justify-center transition-colors";
+        labelDiferenca.className = "block text-[10px] font-bold text-rose-500 uppercase mb-1";
+        kpiDiferenca.className = "text-sm font-extrabold text-rose-700";
+        labelDiferenca.textContent = "Excedido";
+      } else {
+        kpiDiferenca.textContent = `R$ ${diferencaGeral.toFixed(2)}`;
+        boxDiferenca.className = "bg-emerald-50 p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-col justify-center transition-colors";
+        labelDiferenca.className = "block text-[10px] font-bold text-emerald-500 uppercase mb-1";
+        kpiDiferenca.className = "text-sm font-extrabold text-emerald-700";
+        labelDiferenca.textContent = "Economia";
+      }
+
+      // 3. Processar Categorias
+      let categorias = {
+        'Alimentação': { valor: 0, cor: 'bg-orange-500' },
+        'Hospedagem': { valor: 0, cor: 'bg-indigo-500' },
+        'Transporte': { valor: 0, cor: 'bg-sky-500' },
+        'Passeios': { valor: 0, cor: 'bg-emerald-500' },
+        'Lembranças': { valor: 0, cor: 'bg-teal-500' },
+        'Outros': { valor: 0, cor: 'bg-slate-400' }
+      };
+
+      waypoints.forEach(w => {
+        const valor = w.valorPago > 0 ? w.valorPago : (w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0));
+        if (valor === 0) return;
+        let catNome = w.categoria && categorias[w.categoria] ? w.categoria : 'Em branco';
+        if (categorias[catNome]) categorias[catNome].valor += valor;
+      });
+
+      const totalCategorizado = Object.values(categorias).reduce((acc, cat) => acc + cat.valor, 0);
+      const listaCategorias = document.getElementById('listaCategorias');
+      listaCategorias.innerHTML = '';
+      
+      Object.keys(categorias).forEach(nome => {
+        const cat = categorias[nome];
+        if (cat.valor > 0) {
+          const pct = totalCategorizado > 0 ? Math.round((cat.valor / totalCategorizado) * 100) : 0;
+          listaCategorias.innerHTML += `
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-slate-700">${nome}</span>
+                <span class="text-slate-500">R$ ${cat.valor.toFixed(2)}</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div class="${cat.cor} h-2 rounded-full" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      if (listaCategorias.innerHTML.trim() === '') {
+        listaCategorias.innerHTML = '<p class="text-xs text-slate-400">Nenhum valor financeiro registrado.</p>';
+      }
+
+      // 4. Processar Gastos por Dia (Corrigido)
+      const gastosPorDia = {};
+      let maiorGastoDia = 0;
+
+      waypointsOrdenados.forEach(w => {
+        let dataStr = 'Sem Data';
+        
+        // Pega a data de forma segura, ignorando o formato que vier
+        if (w.dataHora) {
+          const d = new Date(w.dataHora);
+          if (!isNaN(d.getTime())) {
+            const ano = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            dataStr = `${ano}-${mes}-${dia}`;
+          }
+        }
+
+        const valor = w.valorPago > 0 ? w.valorPago : (w.valorOrcado !== undefined ? w.valorOrcado : (w.valorEstimado || 0));
+        
+        if (!gastosPorDia[dataStr]) gastosPorDia[dataStr] = 0;
+        gastosPorDia[dataStr] += valor;
+        
+        if (gastosPorDia[dataStr] > maiorGastoDia) {
+          maiorGastoDia = gastosPorDia[dataStr];
+        }
+      });
+
+      const listaGastosDia = document.getElementById('listaGastosDia');
+      listaGastosDia.innerHTML = '';
+
+      Object.keys(gastosPorDia).forEach(data => {
+        const valorDia = gastosPorDia[data];
+        if (valorDia > 0) {
+          const pct = maiorGastoDia > 0 ? Math.round((valorDia / maiorGastoDia) * 100) : 0;
+          const dataLabel = data === 'Sem Data' ? 'S/ Data' : formatarDataStringParaDDMM(data);
+          
+          listaGastosDia.innerHTML += `
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-slate-700">${dataLabel}</span>
+                <span class="text-slate-500">R$ ${valorDia.toFixed(2)}</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div class="bg-amber-400 h-2 rounded-full" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      if (listaGastosDia.innerHTML.trim() === '') {
+        listaGastosDia.innerHTML = '<p class="text-xs text-slate-400">Nenhum valor diário registrado.</p>';
+      }
+
+      // 5. Processar Diárias por Cidade (Corrigido)
+      const listaCidades = document.getElementById('listaCidades');
+      listaCidades.innerHTML = '';
+      
+      const hospedagens = waypointsOrdenados.filter(w => w.categoria === 'Hospedagem');
+
+      if (hospedagens.length > 0) {
+        const diasPorCidade = {};
+        
+        for (let i = 0; i < hospedagens.length; i++) {
+          const hosp = hospedagens[i];
+          const cidade = hosp.cidade ? hosp.cidade.trim() : 'Desconhecida';
+          
+          // Zera as horas para calcular apenas a diferença de dias
+          const dataCheckin = new Date(hosp.dataHora);
+          dataCheckin.setHours(0, 0, 0, 0);
+          
+          let dataCheckout;
+          if (i < hospedagens.length - 1) {
+            dataCheckout = new Date(hospedagens[i+1].dataHora);
+          } else {
+            const ultimoWp = waypointsOrdenados[waypointsOrdenados.length - 1];
+            dataCheckout = new Date(ultimoWp.dataHora);
+          }
+          dataCheckout.setHours(0, 0, 0, 0);
+
+          const diffTime = Math.abs(dataCheckout - dataCheckin);
+          let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 0) diffDays = 1;
+
+          if (!diasPorCidade[cidade]) diasPorCidade[cidade] = 0;
+          diasPorCidade[cidade] += diffDays;
+        }
+
+        Object.keys(diasPorCidade).forEach(cidade => {
+          const qtdDias = diasPorCidade[cidade];
+          listaCidades.innerHTML += `
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center shadow-sm">
+              <span class="text-xl font-bold text-rose-600">${qtdDias}</span>
+              <span class="text-[10px] font-bold text-slate-500 uppercase">${qtdDias > 1 ? 'Dias' : 'Dia'}</span>
+              <span class="text-xs font-semibold text-slate-800 mt-1 line-clamp-1 w-full" title="${cidade}">${cidade}</span>
+            </div>
+          `;
+        });
+      } else {
+        listaCidades.innerHTML = '<p class="text-xs text-slate-400 col-span-2 text-center py-2 bg-slate-50 rounded-xl border border-slate-100">Cadastre eventos do tipo "Hospedagem" para calcular o tempo em cada cidade.</p>';
+      }
+    }
+
+
+    
+          
+              
+
+    function formatarDataCurta(data) {
+      const dia = String(data.getDate()).padStart(2, '0');
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      return `${dia}/${mes}`;
+    }
+
+    function formatarDataStringParaDDMM(dataStr) {
+      const partes = dataStr.split('-');
+      if (partes.length === 3) {
+        return `${partes[2]}/${partes[1]}`;
+      }
+      return dataStr;
+    }
+  </script>
+</body>
+</html>
